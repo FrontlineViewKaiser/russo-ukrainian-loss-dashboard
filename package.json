@@ -1,0 +1,27 @@
+{
+  "name": "oryx-visualizer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check-data.mjs",
+    "gen:ua": "node scripts/generate-ua.mjs",
+    "sync:data": "node scripts/sync-data.mjs",
+    "predev": "npm run sync:data",
+    "prebuild": "npm run sync:data",
+    "precheck": "npm run sync:data",
+    "fetch:warspotting": "node scripts/fetch-warspotting.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.2.2"
+  }
+}

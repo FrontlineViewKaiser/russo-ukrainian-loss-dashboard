@@ -1,0 +1,39 @@
+{
+  "entries": 6889,
+  "vehicles": 7089,
+  "byCategory": {
+    "Infantry Fighting Vehicles": 1581,
+    "Tanks": 980,
+    "Trucks and similar vehicles": 1120,
+    "Armoured Fighting Vehicles": 560,
+    "Armoured Personnel Carriers": 431,
+    "Towed Artillery": 397,
+    "Self-Propelled Artillery": 340,
+    "Engineering Vehicles And Equipment": 226,
+    "Infantry Mobility Vehicles": 267,
+    "Rocket and Missile Artillery": 190,
+    "Surface-To-Air Missile Systems": 177,
+    "Mine-Resistant Ambush Protected (MRAP) Vehicles": 151,
+    "Command Posts And Communications Stations": 119,
+    "Artillery and Missile Support Vehicles And Equipment": 95,
+    "Aircraft": 88,
+    "Helicopters": 73,
+    "Radars": 64,
+    "Anti-Aircraft Guns": 49,
+    "Self-Propelled Anti-Aircraft Guns": 36,
+    "Jammers And Deception Systems": 41,
+    "Self-Propelled Anti-Tank Missile Systems": 30,
+    "Unmanned Combat Aerial Vehicles": 58,
+    "Naval Ships and Submarines": 16
+  },
+  "byOutcome": {
+    "destroyed": 5592,
+    "captured": 766,
+    "abandoned": 146,
+    "damaged and abandoned": 249,
+    "damaged": 281,
+    "damaged and captured": 55
+  },
+  "undated": 2034,
+  "multiRows": 176
+}
