@@ -29,6 +29,20 @@ serving a stale file while the check script read a different one. Edit the root 
 The JSON is fetched at runtime rather than imported, so the 4.7 MB file never enters the
 bundle.
 
+## Deploying
+
+Pushing to `main` builds and publishes to GitHub Pages via
+`.github/workflows/deploy.yml`. The workflow runs `npm run build` (whose `prebuild` step
+regenerates the gitignored `public/` copies from the datasets at the repo root) and then
+`npm run check`, so a deploy fails rather than shipping data that no longer reconciles.
+
+`vite.config.js` sets `base` to the repository path for builds **and for `vite preview`** —
+preview reports the same `command` as the dev server, so matching only on `command` leaves
+preview serving at `/` while the built HTML asks for `/<repo>/`, and every asset 404s.
+
+A first visit transfers about **1.4 MB gzipped**: the three datasets are 12.3 MB raw but
+compress roughly tenfold, which is why they can be loaded up front rather than lazily.
+
 ## Data sources and attribution
 
 This repository contains data compiled by other people. It is included so the app runs from
