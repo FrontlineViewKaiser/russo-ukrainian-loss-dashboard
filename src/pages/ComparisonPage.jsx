@@ -220,7 +220,11 @@ export default function ComparisonPage({ data, filters, setFilters }) {
 
       <p className="foot">
         Both sides are aggregated on one shared time axis and matched by category name. Only
-        dated entries appear in these charts. Ukrainian figures are synthetic sample data.
+        dated entries appear in these charts. Source: Oryx. Data scraped and processed by{' '}
+        <a href="https://cracken.ai/platform" target="_blank" rel="noopener noreferrer">
+          Cracken.ai
+        </a>
+        .
       </p>
     </div>
   )

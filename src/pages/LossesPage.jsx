@@ -243,7 +243,11 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
             Time charts cover the {fmt(db.coverage.datedVehicles)} of {fmt(db.coverage.vehicles)}{' '}
             vehicles carrying a date; totals and rankings include all of them. Counts are documented
             losses, a floor rather than an estimate. Dates are publication dates.{' '}
-            Source: Oryx.
+            Source: Oryx. Data scraped and processed by{' '}
+            <a href="https://cracken.ai/platform" target="_blank" rel="noopener noreferrer">
+              Cracken.ai
+            </a>
+            .
           </>
         )}
       </p>

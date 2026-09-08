@@ -1,6 +1,10 @@
 # Oryx Loss Visualizer
 
-An interactive dashboard over two datasets, with three sections in the sidebar:
+An interactive dashboard over documented equipment-loss catalogues from the Russo-Ukrainian war.
+
+> The Oryx data in this repository was **scraped and processed by [Cracken.ai](https://cracken.ai/platform)**.
+
+Four sections in the sidebar:
 
 | Section | Data |
 |---|---|
@@ -50,7 +54,7 @@ a clone; the analysis code is mine, the underlying catalogues are not.
 
 | File | Source | Notes |
 |---|---|---|
-| `oryx-ru.json`, `oryx-ua.json` | [Oryx](https://www.oryxspioenkop.com/) — *Attack On Europe: Documenting Russian Equipment Losses* and its Ukrainian counterpart | Visually-confirmed losses, compiled by Stijn Mitzer and Joost Oliemans. Scraped into JSON; the field structure is described below. |
+| `oryx-ru.json`, `oryx-ua.json` | [Oryx](https://www.oryxspioenkop.com/) — *Attack On Europe: Documenting Russian Equipment Losses* and its Ukrainian counterpart | Visually-confirmed losses, compiled by Stijn Mitzer and Joost Oliemans. **Scraped and processed by [Cracken.ai](https://cracken.ai/platform).** The field structure is described below. |
 | `warspotting.json` | [WarSpotting](https://ukr.warspotting.net/) via its [public API](https://ukr.warspotting.net/api/docs/) | © 2022-2026 WarSpotting, all rights reserved. Snapshot taken with `npm run fetch:warspotting`, which respects the published rate limit of 10 requests per 10 seconds. |
 
 Both are documented-loss catalogues: they count what has been visually confirmed, which is a

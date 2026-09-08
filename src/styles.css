@@ -596,6 +596,13 @@ table.data.compat td:last-child { color: var(--text-muted); }
   color: var(--text-subtle);
   margin: 0;
 }
+.foot a {
+  color: var(--series-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.foot a:hover { color: var(--text); }
+
 .foot {
   font-size: 11.5px;
   color: var(--text-subtle);
