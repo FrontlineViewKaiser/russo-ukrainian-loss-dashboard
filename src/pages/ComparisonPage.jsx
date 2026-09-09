@@ -20,9 +20,15 @@ const SIDE_COLOR = { russia: 'var(--series-1)', ukraine: 'var(--series-2)' }
 
 const EMPTY = []
 
-/** Categories present in either dataset, ranked by combined size. Matched BY NAME - the
- *  two datasets order their categories differently, so indices are not interchangeable. */
-function useCombinedCategories(sides, statusIdxs) {
+/**
+ * Categories in the shared order the dashboards use, with combined totals for the current
+ * outcome filter. Matched BY NAME - the datasets index their cubes independently.
+ *
+ * The order comes from `sharedCats`, not from the filtered values: re-sorting by value made
+ * the list reshuffle every time an outcome filter changed, and disagree with the order on
+ * the two dashboards.
+ */
+function useCombinedCategories(sides, statusIdxs, sharedCats) {
   return useMemo(() => {
     const acc = new Map()
     for (const db of sides) {
@@ -30,10 +36,9 @@ function useCombinedCategories(sides, statusIdxs) {
         acc.set(name, (acc.get(name) || 0) + value)
       }
     }
-    return [...acc.entries()]
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-  }, [sides, statusIdxs])
+    const order = sharedCats?.length ? sharedCats : [...acc.keys()]
+    return order.filter((name) => acc.has(name)).map((name) => ({ name, value: acc.get(name) }))
+  }, [sides, statusIdxs, sharedCats])
 }
 
 /** Bucket series for one side over the named categories. */
@@ -58,7 +63,7 @@ export default function ComparisonPage({ data, filters, setFilters }) {
     () => STATUSES.map((s, i) => i).filter((i) => selectedStatuses.has(STATUSES[i])),
     [selectedStatuses],
   )
-  const categories = useCombinedCategories(sides, statusIdxs)
+  const categories = useCombinedCategories(sides, statusIdxs, data.sharedCats)
 
   // Exactly one category at a time: summing an arbitrary subset answers no question, and
   // hides the per-category shape this page exists to show.

@@ -32,10 +32,19 @@ async function fetchJson(file) {
 
 const fetchRows = async (file) => flatten(await fetchJson(file))
 
-/** Everything a dashboard needs for one dataset, aggregated on the shared domain. */
-function prepare(meta, rows, domain) {
-  const categoryTotals = totalsBy(rows, (r) => r.cat)
-  const orderedCats = categoryTotals.map((c) => c.name)
+/**
+ * Everything a dashboard needs for one dataset, aggregated on the shared domain.
+ *
+ * `order` fixes the category sequence. The Oryx datasets are given one shared order so the
+ * selectors, bar charts, small multiples and comparison all read the same way - and, because
+ * buildCategoryStyles assigns hues by rank, so that a category keeps the same colour on
+ * every page. Ordering each dataset by its own totals made Tanks a different colour on the
+ * Russian and Ukrainian pages.
+ */
+function prepare(meta, rows, domain, order) {
+  const totals = new Map(totalsBy(rows, (r) => r.cat).map((c) => [c.name, c.value]))
+  const orderedCats = order || [...totals.keys()]
+  const categoryTotals = orderedCats.map((name) => ({ name, value: totals.get(name) || 0 }))
   const dated = rows.filter((r) => r.t != null)
 
   const rowsByCat = new Map()
@@ -84,9 +93,17 @@ export async function loadAll() {
   const times = oryx.flat().filter((r) => r.t != null).map((r) => r.t)
   const domain = [Math.min(...times), Math.max(...times)]
 
+  // One category order shared by every Oryx dataset, ranked by combined size so neither
+  // side's ordering is imposed on the other.
+  const combined = new Map()
+  for (const rows of oryx) {
+    for (const r of rows) combined.set(r.cat, (combined.get(r.cat) || 0) + r.weight)
+  }
+  const sharedCats = [...combined.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name)
+
   const byId = {}
   DATASETS.forEach((meta, i) => {
-    byId[meta.id] = prepare(meta, oryx[i], domain)
+    byId[meta.id] = prepare(meta, oryx[i], domain, sharedCats)
   })
 
   if (wsJson) {
@@ -96,10 +113,17 @@ export async function loadAll() {
     // shared axis would pad every Oryx chart with empty buckets.
     const wsDomain = [Math.min(...wsTimes), Math.max(...wsTimes)]
     byId[WARSPOTTING.id] = {
+      // No shared order: WarSpotting has its own taxonomy, not these categories.
       ...prepare(WARSPOTTING, rows, wsDomain),
       warspotting: warspottingCoverage(rows, wsJson),
     }
   }
 
-  return { byId, order: DATASETS.map((d) => d.id), domain, hasWarspotting: Boolean(wsJson) }
+  return {
+    byId,
+    order: DATASETS.map((d) => d.id),
+    domain,
+    sharedCats,
+    hasWarspotting: Boolean(wsJson),
+  }
 }

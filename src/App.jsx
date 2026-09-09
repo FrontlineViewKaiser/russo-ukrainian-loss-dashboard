@@ -28,20 +28,14 @@ const routeFromHash = () => {
 }
 
 const comparisonDefaults = (data) => {
-  // Rank by COMBINED size, not by either side's own ordering - defaulting to one side's
-  // top categories would quietly bias what the comparison opens on.
-  const combined = new Map()
-  for (const id of data.order) {
-    for (const { name, value } of data.byId[id].categoryTotals) {
-      combined.set(name, (combined.get(name) || 0) + value)
-    }
-  }
-  const ranked = [...combined.entries()].sort((a, b) => b[1] - a[1])
+  // data.sharedCats is already ranked by combined size and is the order every Oryx page
+  // uses, so the comparison opens on the same leading category the dashboards lead with.
+  const ranked = data.sharedCats || []
   return {
     granularity: 'month',
     cumulative: false,
     // Exactly one category is charted at a time; open on the largest.
-    cat: ranked[0]?.[0] ?? null,
+    cat: ranked[0] ?? null,
     statuses: new Set(STATUSES),
     shown: new Set(data.order),
   }
