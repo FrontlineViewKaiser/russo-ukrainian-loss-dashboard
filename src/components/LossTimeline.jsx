@@ -52,8 +52,19 @@ function LossTimeline({
       }
     }
 
-    const named = keyIdxs.slice(0, MAX_SERIES)
-    const folded = keyIdxs.slice(MAX_SERIES)
+    // Which series get a line of their own is a question of size, but they are drawn in
+    // display order. Taking the first MAX_SERIES of keyIdxs instead would name whichever
+    // categories happen to come first in Oryx's grouping and fold bigger ones into Other.
+    const sizeOf = (k) => {
+      let n = 0
+      for (const s of statusIdxs) n += cube.totalAll[k * cube.nS + s]
+      return n
+    }
+    const biggest = new Set(
+      [...keyIdxs].sort((a, b) => sizeOf(b) - sizeOf(a)).slice(0, MAX_SERIES),
+    )
+    const named = keyIdxs.filter((k) => biggest.has(k))
+    const folded = keyIdxs.filter((k) => !biggest.has(k))
     const names = named.map((k) => cube.keys[k])
     const vals = named.map((k) => keyBuckets(cube, granularity, k, statusIdxs))
     if (folded.length) {

@@ -23,7 +23,9 @@ export const defaultFilters = (db) => ({
   granularity: 'month',
   cumulative: false,
   splitBy: 'key',
-  cats: new Set(db.orderedCats.slice(0, MAX_SERIES)),
+  // rankedCats, not orderedCats: display order is Oryx's editorial grouping, so the
+  // first six listed are not the six biggest.
+  cats: new Set((db.rankedCats || db.orderedCats).slice(0, MAX_SERIES)),
   statuses: new Set(STATUSES),
 })
 
@@ -143,7 +145,7 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
 
   const allCats = useCallback(() => patch({ cats: new Set(db.orderedCats) }), [patch, db])
   const topCats = useCallback(
-    () => patch({ cats: new Set(db.orderedCats.slice(0, MAX_SERIES)) }),
+    () => patch({ cats: new Set((db.rankedCats || db.orderedCats).slice(0, MAX_SERIES)) }),
     [patch, db],
   )
   const noCats = useCallback(() => patch({ cats: new Set() }), [patch])

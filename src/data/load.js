@@ -1,4 +1,4 @@
-import { flatten, STATUSES } from './normalize.js'
+import { canonicalCat, flatten, STATUSES } from './normalize.js'
 import { flattenWarspotting, warspottingCoverage } from './warspotting.js'
 import { buildCategoryStyles } from './palette.js'
 import { totalsBy, sumWeight } from './aggregate.js'
@@ -30,7 +30,12 @@ async function fetchJson(file) {
   return res.json()
 }
 
-const fetchRows = async (file) => flatten(await fetchJson(file))
+/** Returns the parsed rows plus the category order exactly as the file lists them. */
+async function fetchOryx(file) {
+  const json = await fetchJson(file)
+  const fileOrder = Object.keys(json?.Losses || {}).map(canonicalCat)
+  return { rows: flatten(json), fileOrder }
+}
 
 /**
  * Everything a dashboard needs for one dataset, aggregated on the shared domain.
@@ -42,9 +47,13 @@ const fetchRows = async (file) => flatten(await fetchJson(file))
  * Russian and Ukrainian pages.
  */
 function prepare(meta, rows, domain, order) {
-  const totals = new Map(totalsBy(rows, (r) => r.cat).map((c) => [c.name, c.value]))
-  const orderedCats = order || [...totals.keys()]
+  const bySize = totalsBy(rows, (r) => r.cat)
+  const totals = new Map(bySize.map((c) => [c.name, c.value]))
+  const orderedCats = order || bySize.map((c) => c.name)
   const categoryTotals = orderedCats.map((name) => ({ name, value: totals.get(name) || 0 }))
+  // Display order is editorial, so "top N" needs its own size ranking - otherwise the
+  // default selection would lead with MRAP (64 entries) and fold Trucks (4,327) into Other.
+  const rankedCats = [...orderedCats].sort((a, b) => (totals.get(b) || 0) - (totals.get(a) || 0))
   const dated = rows.filter((r) => r.t != null)
 
   const rowsByCat = new Map()
@@ -62,6 +71,7 @@ function prepare(meta, rows, domain, order) {
     domain,
     cube: buildCube(rows, orderedCats, STATUSES, domain),
     orderedCats,
+    rankedCats,
     categoryTotals,
     categoryStyles: buildCategoryStyles(orderedCats),
     coverage: {
@@ -85,25 +95,25 @@ function prepare(meta, rows, domain, order) {
  */
 export async function loadAll() {
   const [oryx, wsJson] = await Promise.all([
-    Promise.all(DATASETS.map((d) => fetchRows(d.file))),
+    Promise.all(DATASETS.map((d) => fetchOryx(d.file))),
     // Optional: the snapshot only exists once `npm run fetch:warspotting` has been run.
     fetchJson(WARSPOTTING.file).catch(() => null),
   ])
 
-  const times = oryx.flat().filter((r) => r.t != null).map((r) => r.t)
+  const times = oryx.flatMap((o) => o.rows).filter((r) => r.t != null).map((r) => r.t)
   const domain = [Math.min(...times), Math.max(...times)]
 
-  // One category order shared by every Oryx dataset, ranked by combined size so neither
-  // side's ordering is imposed on the other.
-  const combined = new Map()
-  for (const rows of oryx) {
-    for (const r of rows) combined.set(r.cat, (combined.get(r.cat) || 0) + r.weight)
+  // Every Oryx page uses the category order as the Russian file lists it. That is Oryx's
+  // own grouping - armour first, trucks last - rather than a size ranking, and both files
+  // already ship it. Anything a later file adds is appended so nothing can be dropped.
+  const sharedCats = [...oryx[0].fileOrder]
+  for (const { fileOrder } of oryx.slice(1)) {
+    for (const c of fileOrder) if (!sharedCats.includes(c)) sharedCats.push(c)
   }
-  const sharedCats = [...combined.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name)
 
   const byId = {}
   DATASETS.forEach((meta, i) => {
-    byId[meta.id] = prepare(meta, oryx[i], domain, sharedCats)
+    byId[meta.id] = prepare(meta, oryx[i].rows, domain, sharedCats)
   })
 
   if (wsJson) {
