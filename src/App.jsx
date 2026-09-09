@@ -57,7 +57,7 @@ export default function App() {
 
   // Filter state per page, held here so navigating away and back restores it.
   const [filters, setFilters] = useState({})
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState('')
 
   // Defaults per page, and the context the URL codec needs to validate names and windows.
   const defaultsFor = useCallback((d, id) => (
@@ -226,6 +226,38 @@ export default function App() {
                   : 'Oryx visual confirmations'}
           </span>
           <div className="spacer" />
+          <button
+            type="button"
+            className="btn"
+            title="Copy a link that reopens this exact view"
+            onClick={async () => {
+              // Say what happened either way. The async clipboard API needs a secure
+              // context and permission, so fall back to a selection copy rather than
+              // leaving the button looking broken.
+              const url = location.href
+              let ok = false
+              try {
+                await navigator.clipboard.writeText(url)
+                ok = true
+              } catch {
+                try {
+                  const ta = document.createElement('textarea')
+                  ta.value = url
+                  ta.style.cssText = 'position:fixed;opacity:0'
+                  document.body.appendChild(ta)
+                  ta.select()
+                  ok = document.execCommand('copy')
+                  ta.remove()
+                } catch {
+                  ok = false
+                }
+              }
+              setCopied(ok ? 'Link copied' : 'Press Ctrl+C')
+              setTimeout(() => setCopied(''), 2200)
+            }}
+          >
+            {copied || 'Copy link'}
+          </button>
           <Segmented label="Theme" showLabel={false} value={theme} onChange={setTheme} options={THEMES} />
         </header>
         {body}
