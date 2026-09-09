@@ -3,6 +3,7 @@ import { DATASETS, loadAll } from './data/load.js'
 import LossMap from './components/LossMap.jsx'
 import CompatibilityNote from './components/CompatibilityNote.jsx'
 import { STATUSES } from './data/normalize.js'
+import { buildHash, decodeFilters, parseHash } from './data/urlState.js'
 import { Segmented } from './components/ui.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import LossesPage, { defaultFilters } from './pages/LossesPage.jsx'
@@ -22,9 +23,10 @@ const PAGES = [
 ]
 const VALID = new Set(PAGES.map((p) => p.id))
 
+// Must split the query off first: the hash now carries the whole view state.
 const routeFromHash = () => {
-  const id = (location.hash || '').replace(/^#\/?/, '')
-  return VALID.has(id) ? id : 'russia'
+  const { route } = parseHash()
+  return VALID.has(route) ? route : 'russia'
 }
 
 const comparisonDefaults = (data) => {
@@ -55,24 +57,61 @@ export default function App() {
 
   // Filter state per page, held here so navigating away and back restores it.
   const [filters, setFilters] = useState({})
+  const [copied, setCopied] = useState(false)
+
+  // Defaults per page, and the context the URL codec needs to validate names and windows.
+  const defaultsFor = useCallback((d, id) => (
+    id === 'comparison' ? comparisonDefaults(d) : defaultFilters(d.byId[id])
+  ), [])
+  const ctxFor = useCallback((d, id) => {
+    const db = id === 'comparison' ? d.byId[d.order[0]] : d.byId[id]
+    return {
+      allCats: id === 'comparison' ? d.sharedCats : db.orderedCats,
+      allSides: d.order,
+      axisFor: (g) => db.cube.axes[g],
+    }
+  }, [])
 
   useEffect(() => {
     loadAll()
       .then((d) => {
         setData(d)
-        const init = { comparison: comparisonDefaults(d) }
-        for (const id of Object.keys(d.byId)) init[id] = defaultFilters(d.byId[id])
+        const init = {}
+        for (const id of [...Object.keys(d.byId), 'comparison']) init[id] = defaultsFor(d, id)
+        // Seed the page named in the hash from its query, so a pasted link opens on that view.
+        const { route: r, params } = parseHash()
+        if (VALID.has(r) && init[r]) init[r] = decodeFilters(params, init[r], ctxFor(d, r))
         setFilters(init)
       })
       .catch(setError)
-  }, [])
+  }, [defaultsFor, ctxFor])
 
   useEffect(() => {
-    const onHash = () => setRoute(routeFromHash())
+    // A pasted link or Back/Forward changes the hash: adopt both the route and its state.
+    const onHash = () => {
+      const { route: r, params } = parseHash()
+      const next = VALID.has(r) ? r : 'russia'
+      setRoute(next)
+      setData((d) => {
+        if (d) {
+          setFilters((all) => ({ ...all, [next]: decodeFilters(params, defaultsFor(d, next), ctxFor(d, next)) }))
+        }
+        return d
+      })
+    }
     window.addEventListener('hashchange', onHash)
     if (!location.hash) location.replace('#/russia')
     return () => window.removeEventListener('hashchange', onHash)
-  }, [])
+  }, [defaultsFor, ctxFor])
+
+  // Mirror the current view into the address bar. replaceState, not pushState: the sidebar
+  // links already push, so pushing per toggle would bury page navigation under filter steps.
+  // replaceState fires no hashchange, so this cannot loop back into the listener above.
+  useEffect(() => {
+    if (!data || !filters[route]) return
+    const next = buildHash(route, filters[route], defaultsFor(data, route), ctxFor(data, route))
+    if (next !== location.hash) history.replaceState(null, '', next)
+  }, [data, filters, route, defaultsFor, ctxFor])
 
   useEffect(() => {
     const root = document.documentElement

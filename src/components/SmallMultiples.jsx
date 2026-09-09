@@ -40,6 +40,7 @@ function SmallMultiples({ cube, statusIdxs, granularity, cumulative, categoryTot
 
   return (
     <Panel
+      exportable={false}
       title="Every category"
       caption="Click a panel for its breakdown by type"
       actions={

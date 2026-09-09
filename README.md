@@ -47,6 +47,34 @@ preview serving at `/` while the built HTML asks for `/<repo>/`, and every asset
 A first visit transfers about **1.4 MB gzipped**: the three datasets are 12.3 MB raw but
 compress roughly tenfold, which is why they can be loaded up front rather than lazily.
 
+## Sharing a view
+
+Every control writes into the URL, so the address bar always describes what is on screen and
+a pasted link reopens it exactly — page, categories, bucket size, cumulative toggle, split
+mode, outcome filters and the brushed time window. A **Copy link** button sits in the top bar.
+
+Anything at its default is left out, so an untouched page is just `#/russia` and a link only
+carries what differs; `cats=all` stands in for "everything selected" rather than listing 23
+names. Categories and outcomes go in by name, not index, so a link keeps meaning if the source
+ordering changes. The window is stored as bucket start dates rather than indices, so it still
+resolves when the recipient's bucket size differs. Anything unrecognised is ignored and falls
+back to the default.
+
+## Exporting a chart
+
+Each single-chart panel has **Copy** and **PNG** buttons. The image is self-contained: the
+plot, its heading, the legend with values, and a footer crediting Oryx and Cracken.ai with the
+deep link back to that exact view.
+
+The awkward part is colour. Every mark is painted with a CSS custom property
+(`stroke="var(--series-1)"` and sixteen others), and custom properties only resolve against the
+document that defines them — serialise the SVG out of the page and the export comes back blank.
+`src/lib/exportChart.js` therefore reads the token values from the live document and substitutes
+them before rasterising. A consequence worth knowing: an export made in dark mode is dark.
+
+The two facet grids are excluded, since each holds 23 separate charts; use the per-category
+drill-down, whose chart exports like any other.
+
 ## Data sources and attribution
 
 This repository contains data compiled by other people. It is included so the app runs from

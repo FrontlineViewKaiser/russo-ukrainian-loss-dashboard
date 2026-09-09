@@ -1,4 +1,4 @@
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -32,7 +32,9 @@ function useCombinedCategories(sides, statusIdxs, sharedCats) {
   return useMemo(() => {
     const acc = new Map()
     for (const db of sides) {
-      for (const { name, value } of totalsByKey(db.cube, statusIdxs)) {
+      // dated: true - the charts and metrics on this page plot dated rows only, so pills
+      // counting every row would report a larger number than the chart beneath them.
+      for (const { name, value } of totalsByKey(db.cube, statusIdxs, true)) {
         acc.set(name, (acc.get(name) || 0) + value)
       }
     }
@@ -54,8 +56,9 @@ function sideSeries(db, granularity, names, statusIdxs) {
 export default function ComparisonPage({ data, filters, setFilters }) {
   const sides = useMemo(() => data.order.map((id) => data.byId[id]), [data])
   const { granularity, cumulative, cat, statuses: selectedStatuses, shown } = filters
-  // Brush window of the chart below, so the metric strip can scope itself to it.
-  const [range, setRange] = useState(null)
+  // In the page filters rather than local state, so a shared link can restore the window.
+  const range = filters.range
+  const setRange = useCallback((r) => setFilters((f) => ({ ...f, range: r })), [setFilters])
 
   const patch = useCallback((p) => setFilters((f) => ({ ...f, ...p })), [setFilters])
 
@@ -140,8 +143,46 @@ export default function ComparisonPage({ data, filters, setFilters }) {
     [sides],
   )
 
+  // Stated from the data rather than hardcoded. The point is not that the numbers are
+  // smaller: the two sides are undated at different rates, so dropping undated rows moves
+  // the ratio itself, and a reader comparing this page against the dashboards would
+  // otherwise find a discrepancy with nothing to explain it.
+  const coverage = useMemo(() => {
+    const per = sides.map((db) => ({
+      short: db.short,
+      all: db.coverage.vehicles,
+      dated: db.coverage.datedVehicles,
+      pct: Math.round((100 * (db.coverage.vehicles - db.coverage.datedVehicles)) / db.coverage.vehicles),
+    }))
+    const ratio = (get) => {
+      const [a, b] = per.map(get)
+      return b ? (a / b).toFixed(2) : '—'
+    }
+    return { per, allRatio: ratio((p) => p.all), datedRatio: ratio((p) => p.dated) }
+  }, [sides])
+
   return (
     <div className={'page' + (stale ? ' stale' : '')}>
+      <div className="notice">
+        <span className="mark">Dated only</span>
+        <span>
+          Every figure on this page counts only vehicles whose loss carries a date —{' '}
+          {coverage.per.map((p, i) => (
+            <span key={p.short}>
+              {i > 0 && ' and '}
+              <b>
+                {fmt(p.dated)} of {fmt(p.all)}
+              </b>{' '}
+              {p.short} ({p.pct}% undated)
+            </span>
+          ))}
+          . The dashboards count every entry, so their totals are higher. Because the two sides
+          are undated at different rates, this changes the comparison itself and not just its
+          scale: the ratio here is <b>{coverage.datedRatio} : 1</b>, against{' '}
+          <b>{coverage.allRatio} : 1</b> on the full totals.
+        </span>
+      </div>
+
       <div className="panel">
         <div className="toolbar">
           <div className="group">
@@ -208,6 +249,7 @@ export default function ComparisonPage({ data, filters, setFilters }) {
         statusIdxs={deferred.statusIdxs}
         cat={cat}
         onRangeChange={setRange}
+        initialRange={range}
       />
 
       <MetricStrip metrics={metrics} />
@@ -237,7 +279,7 @@ export default function ComparisonPage({ data, filters, setFilters }) {
 
 /* ------------------------------------------------------- the overlay chart -- */
 const ComparisonTimeline = memo(function ComparisonTimeline({
-  sides, granularity, cumulative, names, statusIdxs, cat, onRangeChange,
+  sides, granularity, cumulative, names, statusIdxs, cat, onRangeChange, initialRange,
 }) {
   const { data, totals } = useMemo(() => {
     if (!sides.length) return { data: EMPTY, totals: {} }
@@ -261,9 +303,18 @@ const ComparisonTimeline = memo(function ComparisonTimeline({
     return { data, totals }
   }, [sides, granularity, cumulative, names, statusIdxs])
 
-  // Same contract as LossTimeline: reset when the axis is rebuilt, report upward.
-  const [range, setRange] = useState([0, Math.max(0, data.length - 1)])
-  useEffect(() => setRange([0, Math.max(0, data.length - 1)]), [data.length])
+  // Same contract as LossTimeline: reset only when the axis is rebuilt, report upward, and
+  // honour a window supplied by a shared link.
+  const [range, setRange] = useState(() =>
+    initialRange && initialRange[1] < data.length ? initialRange : [0, Math.max(0, data.length - 1)],
+  )
+  const axisLenRef = useRef(data.length)
+  useEffect(() => {
+    if (axisLenRef.current !== data.length) {
+      axisLenRef.current = data.length
+      setRange([0, Math.max(0, data.length - 1)])
+    }
+  }, [data.length])
   useEffect(() => onRangeChange?.(range), [range, onRangeChange])
 
   const columns = ['Period', ...sides.map((s) => s.short), 'Difference']
@@ -370,6 +421,7 @@ const ComparisonFacets = memo(function ComparisonFacets({
 
   return (
     <Panel
+      exportable={false}
       title="Every category, both sides"
       caption="Click a panel to chart it above" 
       columns={['Category', ...allSides.map((s) => s.short)]}

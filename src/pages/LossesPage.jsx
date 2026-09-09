@@ -38,10 +38,13 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [emphasis, setEmphasis] = useState(null)
   const [detailCat, setDetailCat] = useState(null)
-  // The brush window of the chart above, reported by LossTimeline.
-  const [range, setRange] = useState(null)
 
-  const { granularity, cumulative, splitBy, cats: selectedCats, statuses: selectedStatuses } = filters
+
+  const {
+    granularity, cumulative, splitBy, cats: selectedCats, statuses: selectedStatuses, range,
+  } = filters
+  // Held in the page filters, not local state, so a shared link can restore the window.
+  const setRange = useCallback((r) => setFilters((f) => ({ ...f, range: r })), [setFilters])
   const patch = useCallback((p) => setFilters((f) => ({ ...f, ...p })), [setFilters])
 
   const setGranularity = useCallback((v) => patch({ granularity: v }), [patch])
@@ -198,6 +201,7 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
         emphasis={emphasis}
         onEmphasis={setEmphasis}
         onRangeChange={setRange}
+        initialRange={range}
       />
 
       <MetricStrip metrics={metrics} />

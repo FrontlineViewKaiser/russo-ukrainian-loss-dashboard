@@ -159,12 +159,16 @@ export function total(cube, keyIdxs, statusIdxs, dated = false) {
   return n
 }
 
-/** Per-key totals (all rows, including undated) for the given statuses. */
-export function totalsByKey(cube, statusIdxs) {
+/**
+ * Per-key totals for the given statuses. `dated` restricts to rows carrying a date, which
+ * the comparison page needs so its category pills count the same rows its charts plot.
+ */
+export function totalsByKey(cube, statusIdxs, dated = false) {
+  const src = dated ? cube.totalDated : cube.totalAll
   const out = new Array(cube.nK)
   for (let k = 0; k < cube.nK; k++) {
     let n = 0
-    for (const s of statusIdxs) n += cube.totalAll[k * cube.nS + s]
+    for (const s of statusIdxs) n += src[k * cube.nS + s]
     out[k] = { name: cube.keys[k], value: n }
   }
   return out

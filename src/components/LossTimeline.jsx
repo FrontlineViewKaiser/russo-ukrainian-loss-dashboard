@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { bucketLabel, fmt } from '../data/aggregate.js'
 import { keyBuckets, runningTotal, statusBuckets } from '../data/cube.js'
@@ -22,7 +22,7 @@ const UNIT = { week: 'week', month: 'month', quarter: 'quarter' }
  */
 function LossTimeline({
   cube, keyIdxs, statusIdxs, granularity, cumulative, splitBy, keyStyles,
-  keyNoun = 'category', title, onIsolate, emphasis, onEmphasis, onRangeChange,
+  keyNoun = 'category', title, onIsolate, emphasis, onEmphasis, onRangeChange, initialRange,
 }) {
   const { seriesNames, values, displayName, styleOf, foldedCount } = useMemo(() => {
     const axisLen = cube.axes[granularity].length
@@ -100,10 +100,21 @@ function LossTimeline({
     })
   }, [cube, granularity, seriesNames, series])
 
-  // The brush window is reported upward so the metric strip can scope itself to it.
-  // Changing the bucket size rebuilds the axis, so the window resets to the full span.
-  const [range, setRange] = useState([0, Math.max(0, data.length - 1)])
-  useEffect(() => setRange([0, Math.max(0, data.length - 1)]), [data.length])
+  // The brush window is reported upward so the metric strip and the URL can follow it.
+  // `initialRange` lets a shared link open on a narrowed window; without it the reset below
+  // would wipe that window the moment the chart first measured its axis.
+  const full = [0, Math.max(0, data.length - 1)]
+  const [range, setRange] = useState(() =>
+    initialRange && initialRange[1] < data.length ? initialRange : full,
+  )
+  const axisLenRef = useRef(data.length)
+  useEffect(() => {
+    // Only reset when the axis itself changed (a different bucket size), not on every render.
+    if (axisLenRef.current !== data.length) {
+      axisLenRef.current = data.length
+      setRange([0, Math.max(0, data.length - 1)])
+    }
+  }, [data.length])
   useEffect(() => onRangeChange?.(range), [range, onRangeChange])
 
   const totals = useMemo(
