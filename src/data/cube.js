@@ -44,7 +44,6 @@ export function buildCube(rows, keys, statuses, domain, keyOf = (r) => r.cat) {
 
   const totalAll = new Int32Array(nK * nS) // includes undated rows
   const totalDated = new Int32Array(nK * nS)
-  const typesByPair = new Map() // (k * nS + s) -> Map<typeName, weight>
 
   for (const r of rows) {
     const k = keyIdx.get(keyOf(r))
@@ -53,10 +52,6 @@ export function buildCube(rows, keys, statuses, domain, keyOf = (r) => r.cat) {
     const pair = k * nS + s
 
     totalAll[pair] += r.weight
-    let tm = typesByPair.get(pair)
-    if (!tm) typesByPair.set(pair, (tm = new Map()))
-    tm.set(r.typeName, (tm.get(r.typeName) || 0) + r.weight)
-
     if (r.t == null) continue
     totalDated[pair] += r.weight
     for (const g of GRAINS) {
@@ -66,7 +61,7 @@ export function buildCube(rows, keys, statuses, domain, keyOf = (r) => r.cat) {
     }
   }
 
-  return { nK, nS, keys, statuses, keyIdx, stIdx, axes, counts, totalAll, totalDated, typesByPair }
+  return { nK, nS, keys, statuses, keyIdx, stIdx, axes, counts, totalAll, totalDated }
 }
 
 /**
@@ -174,24 +169,41 @@ export function totalsByKey(cube, statusIdxs, dated = false) {
   return out
 }
 
-/** Per-status totals for the given keys, in the fixed status order. */
-export function totalsByStatus(cube, keyIdxs) {
-  return cube.statuses.map((name, s) => {
+/**
+ * Per-key totals inside an inclusive bucket window - what the category chart and the
+ * category pills need once they follow the chart's brush. Reads the bucket grid directly
+ * rather than calling keyBuckets per key, so the whole set costs a fraction of a millisecond.
+ */
+export function totalsByKeyWindow(cube, g, statusIdxs, from, to) {
+  const nB = cube.axes[g].length
+  const src = cube.counts[g]
+  const a = Math.max(0, from ?? 0)
+  const b = Math.min(nB - 1, to ?? nB - 1)
+  const out = new Array(cube.nK)
+  for (let k = 0; k < cube.nK; k++) {
     let n = 0
-    for (const k of keyIdxs) n += cube.totalAll[k * cube.nS + s]
+    for (const st of statusIdxs) {
+      const base = (k * cube.nS + st) * nB
+      for (let i = a; i <= b; i++) n += src[base + i]
+    }
+    out[k] = { name: cube.keys[k], value: n }
+  }
+  return out
+}
+
+/** Per-status totals inside an inclusive bucket window, in the fixed status order. */
+export function totalsByStatusWindow(cube, g, keyIdxs, from, to) {
+  const nB = cube.axes[g].length
+  const src = cube.counts[g]
+  const a = Math.max(0, from ?? 0)
+  const b = Math.min(nB - 1, to ?? nB - 1)
+  return cube.statuses.map((name, st) => {
+    let n = 0
+    for (const k of keyIdxs) {
+      const base = (k * cube.nS + st) * nB
+      for (let i = a; i <= b; i++) n += src[base + i]
+    }
     return { name, value: n }
   })
 }
 
-/** Equipment types across a selection, descending. Walks only the selected pairs. */
-export function totalsByType(cube, keyIdxs, statusIdxs) {
-  const acc = new Map()
-  for (const k of keyIdxs) {
-    for (const s of statusIdxs) {
-      const tm = cube.typesByPair.get(k * cube.nS + s)
-      if (!tm) continue
-      for (const [name, w] of tm) acc.set(name, (acc.get(name) || 0) + w)
-    }
-  }
-  return [...acc.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-}

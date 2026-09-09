@@ -2,9 +2,9 @@ import { useCallback, useDeferredValue, useMemo, useState } from 'react'
 import { STATUSES } from '../data/normalize.js'
 import { MAX_SERIES } from '../data/palette.js'
 import {
-  statusBuckets, sumKeys, total, totalsByKey, totalsByStatus, totalsByType, windowSum,
+  statusBuckets, sumKeys, total, totalsByKey, totalsByKeyWindow, totalsByStatusWindow, windowSum,
 } from '../data/cube.js'
-import { fmt, rangeLabel } from '../data/aggregate.js'
+import { fmt, rangeLabel, totalsByTypeInWindow } from '../data/aggregate.js'
 import Toolbar from '../components/Toolbar.jsx'
 import EntitySelector from '../components/EntitySelector.jsx'
 import MetricStrip from '../components/MetricStrip.jsx'
@@ -92,19 +92,61 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
 
   const cube = db.cube
 
-  // Deferred as one object, not two values: two independently deferred values can settle
-  // in separate passes, rendering the charts twice per click.
-  const selection = useMemo(() => ({ catIdxs, statusIdxs }), [catIdxs, statusIdxs])
+  // Deferred as one object, not several values: independently deferred values can settle in
+  // separate passes, rendering the charts more than once per click. The brushed window and
+  // the bucket size travel with the selection because the window is a pair of indices into
+  // the axis for that bucket size - deferring one without the other would briefly read the
+  // window against the wrong axis.
+  const selection = useMemo(
+    () => ({ catIdxs, statusIdxs, range, granularity }),
+    [catIdxs, statusIdxs, range, granularity],
+  )
   const chartSel = useDeferredValue(selection)
-  const { catIdxs: chartCats, statusIdxs: chartStatuses } = chartSel
+  const {
+    catIdxs: chartCats, statusIdxs: chartStatuses, range: chartRange, granularity: chartGrain,
+  } = chartSel
   const stale = chartSel !== selection
 
-  const categoryTotals = useMemo(() => totalsByKey(cube, statusIdxs), [cube, statusIdxs])
-  const chartCategoryTotals = useMemo(() => totalsByKey(cube, chartStatuses), [cube, chartStatuses])
-  const statusTotals = useMemo(() => totalsByStatus(cube, chartCats), [cube, chartCats])
-  const typeTotals = useMemo(
-    () => totalsByType(cube, chartCats, chartStatuses),
-    [cube, chartCats, chartStatuses],
+  // The brushed window, clamped and resolved to both bucket indices (for the cube) and
+  // timestamps (for the row scan the equipment types need).
+  const win = useMemo(() => {
+    const axis = cube.axes[chartGrain]
+    const last = axis.length - 1
+    const [a, b] = Array.isArray(chartRange) && chartRange.length === 2 ? chartRange : [0, last]
+    const from = Math.min(Math.max(0, a), last)
+    const to = Math.min(Math.max(from, b), last)
+    return {
+      from,
+      to,
+      fromTs: axis[from],
+      // Open-ended on the last bucket, so entries late in a partial final bucket still count.
+      toTs: to >= last ? Infinity : axis[to + 1],
+      label: rangeLabel(axis, chartGrain, from, to),
+    }
+  }, [cube, chartGrain, chartRange])
+
+  // Everything below follows the brush, so a pill, its bar, its slice and its types always
+  // count the same rows. The consequence is that these are dated entries only: an undated
+  // record carries no date and so falls in no window. The metric strip reports how many.
+  const categoryTotals = useMemo(
+    () => totalsByKeyWindow(cube, chartGrain, chartStatuses, win.from, win.to),
+    [cube, chartGrain, chartStatuses, win],
+  )
+  const statusTotals = useMemo(
+    () => totalsByStatusWindow(cube, chartGrain, chartCats, win.from, win.to),
+    [cube, chartGrain, chartCats, win],
+  )
+  const typeTotals = useMemo(() => {
+    const catNames = new Set(chartCats.map((k) => cube.keys[k]))
+    const statusNames = new Set(chartStatuses.map((i) => cube.statuses[i]))
+    return totalsByTypeInWindow(db.rows, catNames, statusNames, win.fromTs, win.toTs)
+  }, [db, cube, chartCats, chartStatuses, win])
+
+  // The facet grid draws every category across the whole axis, so its totals stay whole-range;
+  // a windowed number beside a full-range sparkline would not describe the line it labels.
+  const allTimeCategoryTotals = useMemo(
+    () => totalsByKey(cube, chartStatuses),
+    [cube, chartStatuses],
   )
 
   // Scoped to the chart's brush. Undated rows carry no date, so they can never fall inside
@@ -208,17 +250,18 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
 
       <div className="grid2">
         <CategoryTotalsBar
-          categoryTotals={chartCategoryTotals}
+          categoryTotals={categoryTotals}
           selected={selectedCats}
           onIsolate={isolate}
           emphasis={emphasis}
           onEmphasis={setEmphasis}
+          windowLabel={win.label}
         />
-        <TopTypesBar typeTotals={typeTotals} />
+        <TopTypesBar typeTotals={typeTotals} windowLabel={win.label} />
       </div>
 
       <div className="grid2">
-        <StatusDonut statusTotals={statusTotals} />
+        <StatusDonut statusTotals={statusTotals} windowLabel={win.label} />
         <MonthlyStatusStack cube={cube} keyIdxs={chartCats} statusIdxs={chartStatuses} />
       </div>
 
@@ -229,7 +272,7 @@ export default function LossesPage({ db, filters, setFilters, extras, footNote }
         statusIdxs={chartStatuses}
         granularity={granularity}
         cumulative={cumulative}
-        categoryTotals={chartCategoryTotals}
+        categoryTotals={allTimeCategoryTotals}
         onOpenDetail={setDetailCat}
       />
 

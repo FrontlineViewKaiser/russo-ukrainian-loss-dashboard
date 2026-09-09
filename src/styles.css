@@ -33,6 +33,11 @@
   --series-other: #8794a5;
   --series-alt: #256abf; /* darker blue, for the second bar chart */
 
+  /* Timeline brush. It now drives five surfaces, so it is coloured as a control. */
+  --brush-track: #eef2f7;
+  --brush-window: #b7d4f4;
+  --brush-handle: #2a78d6;
+
   --radius: 6px;
   --radius-sm: 4px;
 }
@@ -63,6 +68,9 @@
     --series-6: #008300;
     --series-other: #7d8b9c;
     --series-alt: #6ea8f0;
+    --brush-track: #131b24;
+    --brush-window: #274c76;
+    --brush-handle: #3987e5;
   }
 }
 
@@ -91,6 +99,9 @@
   --series-6: #008300;
   --series-other: #7d8b9c;
   --series-alt: #6ea8f0;
+  --brush-track: #131b24;
+  --brush-window: #274c76;
+  --brush-handle: #3987e5;
 }
 
 * { box-sizing: border-box; }
@@ -726,4 +737,53 @@ table.data.compat td:last-child { color: var(--text-muted); }
   .overlay { padding: 0; }
   .dialog { max-width: none; min-height: 100%; border: 0; border-radius: 0; }
   .dialog-head { border-radius: 0; }
+}
+
+/* ------------------------------------------------------- timeline brush --
+   The window selector is no longer decoration: it scopes the metric strip, the
+   category bars, the outcome ring, the equipment types and the category pills.
+   It is therefore sized and coloured like a primary control - a visible track,
+   a tinted selection, and grips wide enough to hit without aiming.
+
+   CSS wins over SVG presentation attributes, so Recharts' own defaults are
+   simply overridden here rather than threaded through props. */
+.recharts-brush > rect {
+  fill: var(--brush-track);
+  stroke: var(--border-strong);
+  rx: 5px;
+}
+
+.recharts-brush .recharts-brush-slide {
+  fill: var(--brush-window);
+  fill-opacity: 1;
+  stroke: none;
+}
+
+/* Grip: the default traveller is a filled rect plus two white pull-lines. */
+.recharts-brush .recharts-brush-traveller rect {
+  fill: var(--brush-handle);
+  rx: 3px;
+}
+.recharts-brush .recharts-brush-traveller line {
+  stroke: #fff;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.recharts-brush .recharts-brush-traveller:hover rect {
+  fill: var(--focus);
+}
+/* The travellers are real sliders with tabIndex and arrow-key handling, so the
+   keyboard focus must be visible on them. */
+.recharts-brush .recharts-brush-traveller:focus {
+  outline: none;
+}
+.recharts-brush .recharts-brush-traveller:focus-visible rect {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+.recharts-brush-texts text {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
 }

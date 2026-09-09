@@ -63,7 +63,16 @@ export async function panelToPng(panel, { link } = {}) {
   const tokens = readTokens()
   const rect = src.getBoundingClientRect()
   const w = Math.max(320, Math.round(rect.width))
-  const chartH = Math.round(rect.height)
+
+  // The brush is dropped from the export. It is a control, not a mark - it does nothing in
+  // a still image - and its colours come from the stylesheet rather than from presentation
+  // attributes, so a serialised copy would rasterise as a black bar. The caption already
+  // names the window, so nothing is lost. Crop at the brush's top edge, above which sit the
+  // axis labels we do want.
+  const brushEl = src.querySelector('.recharts-brush')
+  const chartH = brushEl
+    ? Math.max(80, Math.round(brushEl.getBoundingClientRect().top - rect.top))
+    : Math.round(rect.height)
 
   const title = panel.querySelector('h2')?.textContent?.trim() || 'Chart'
   const caption = panel.querySelector('.cap')?.textContent?.trim() || ''
@@ -109,11 +118,12 @@ export async function panelToPng(panel, { link } = {}) {
   const h = PAD + headH + chartH + legendH + footH + PAD
 
   const clone = src.cloneNode(true)
+  clone.querySelector('.recharts-brush')?.remove()
   // Keep explicit dimensions. A nested <svg> without width/height defaults to 100% of its
   // parent, so the chart would stretch over the whole output and cover the legend.
   clone.setAttribute('width', String(rect.width))
-  clone.setAttribute('height', String(rect.height))
-  clone.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`)
+  clone.setAttribute('height', String(chartH))
+  clone.setAttribute('viewBox', `0 0 ${rect.width} ${chartH}`)
   const chartMarkup = resolveVars(new XMLSerializer().serializeToString(clone), tokens)
 
   let y = PAD + 18

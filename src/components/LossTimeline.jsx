@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { bucketLabel, fmt } from '../data/aggregate.js'
+import { bucketLabel, fmt, rangeLabel } from '../data/aggregate.js'
 import { keyBuckets, runningTotal, statusBuckets } from '../data/cube.js'
 import { MAX_SERIES, OTHER, statusColor } from '../data/palette.js'
 import Panel from './Panel.jsx'
@@ -117,16 +117,28 @@ function LossTimeline({
   }, [data.length])
   useEffect(() => onRangeChange?.(range), [range, onRangeChange])
 
+  // Scoped to the brush, because the chart is. In cumulative mode the value is the last
+  // point still visible - the running total the line actually ends on - rather than the
+  // window's own contribution, so the legend reads off the chart.
+  const [wFrom, wTo] = useMemo(() => {
+    const last = Math.max(0, data.length - 1)
+    const a = Math.min(Math.max(0, range[0] ?? 0), last)
+    return [a, Math.min(Math.max(a, range[1] ?? last), last)]
+  }, [range, data.length])
+
   const totals = useMemo(
     () =>
       series.map((arr) => {
-        if (cumulative) return arr.length ? arr[arr.length - 1] : 0
+        if (!arr.length) return 0
+        if (cumulative) return arr[wTo]
         let n = 0
-        for (let i = 0; i < arr.length; i++) n += arr[i]
+        for (let i = wFrom; i <= wTo; i++) n += arr[i]
         return n
       }),
-    [series, cumulative],
+    [series, cumulative, wFrom, wTo],
   )
+
+  const windowLabel = rangeLabel(cube.axes[granularity], granularity, wFrom, wTo)
 
   const legendItems = seriesNames.map((n, i) => ({
     key: n,
@@ -137,7 +149,9 @@ function LossTimeline({
   }))
 
   const columns = ['Period', ...seriesNames.map(displayName), 'Total']
-  const tableRows = data.map((row) => [row.label, ...seriesNames.map((n) => row[n]), row.__total])
+  const tableRows = data
+    .slice(wFrom, wTo + 1)
+    .map((row) => [row.label, ...seriesNames.map((n) => row[n]), row.__total])
 
   const isolate = (key) => {
     if (splitBy === 'key' && key !== OTHER) onIsolate?.(key)
@@ -148,6 +162,7 @@ function LossTimeline({
       title={title || (cumulative ? 'Cumulative losses over time' : 'Losses over time')}
       caption={
         `Documented vehicles per ${UNIT[granularity]}` +
+        (windowLabel ? ` · ${windowLabel}` : '') +
         (foldedCount ? ` · ${foldedCount} smaller ${keyNoun === 'type' ? 'types' : 'categories'} in Other` : '')
       }
       columns={columns}
@@ -160,7 +175,9 @@ function LossTimeline({
         <>
           <div className="scrollx">
             <div style={{ minWidth: 320 }}>
-              <ResponsiveContainer width="100%" height={380}>
+              {/* Taller than the plot alone needs: the extra room is the brush, which is
+                  now a control rather than a hairline, so the chart keeps its size. */}
+              <ResponsiveContainer width="100%" height={404}>
                 <LineChart data={data} margin={{ top: 6, right: 12, bottom: 0, left: 0 }}>
                   <CartesianGrid {...gridProps} vertical={false} />
                   <XAxis dataKey="label" {...axisProps} minTickGap={30} interval="preserveStartEnd" height={24} />
@@ -191,12 +208,15 @@ function LossTimeline({
                       />
                     )
                   })}
+                  {/* Sized for the mouse and for touch: this window scopes the metric
+                      strip and four panels below, so it has to look draggable. Colours
+                      come from CSS, which overrides these presentation attributes. */}
                   <Brush
                     dataKey="label"
-                    height={22}
-                    travellerWidth={8}
-                    stroke="var(--axis)"
-                    fill="var(--panel-sunken)"
+                    height={40}
+                    travellerWidth={13}
+                    stroke="var(--brush-handle)"
+                    fill="var(--brush-track)"
                     startIndex={range[0]}
                     endIndex={range[1]}
                     onChange={(r) => setRange([r.startIndex, r.endIndex])}

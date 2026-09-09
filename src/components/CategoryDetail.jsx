@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  buildTypeCube, statusBuckets, sumKeys, total, totalsByKey, windowSum,
+  buildTypeCube, statusBuckets, sumKeys, total, totalsByKeyWindow, windowSum,
 } from '../data/cube.js'
 import { STATUSES } from '../data/normalize.js'
 import { MAX_SERIES } from '../data/palette.js'
@@ -50,7 +50,14 @@ export default function CategoryDetail({ cat, rows, domain, initial, onClose }) 
     [types, selectedTypes],
   )
 
-  const typeTotals = useMemo(() => totalsByKey(cube, statusIdxs), [cube, statusIdxs])
+  // The type pills follow this overlay's own brush, exactly as the category pills follow
+  // the dashboard's: a pill and the line it switches on always count the same entries.
+  const typeTotals = useMemo(() => {
+    const last = cube.axes[granularity].length - 1
+    const [a, b] = Array.isArray(range) && range.length === 2 ? range : [0, last]
+    const from = Math.min(Math.max(0, a), last)
+    return totalsByKeyWindow(cube, granularity, statusIdxs, from, Math.min(Math.max(from, b), last))
+  }, [cube, granularity, statusIdxs, range])
   const presentStatuses = useMemo(
     () =>
       cube.statuses.filter((_, s) => {

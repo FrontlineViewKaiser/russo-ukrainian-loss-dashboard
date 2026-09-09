@@ -42,7 +42,7 @@ function SmallMultiples({ cube, statusIdxs, granularity, cumulative, categoryTot
     <Panel
       exportable={false}
       title="Every category"
-      caption="Click a panel for its breakdown by type"
+      caption="Full time range, not the brushed window · click a panel for its breakdown by type"
       actions={
         <Toggle checked={shared} onChange={setShared} title="Use one y-scale across all panels">
           Shared scale

@@ -64,6 +64,29 @@ export function bucketAxis(min, max, g) {
   return out
 }
 
+/**
+ * Equipment-type totals inside a time window, descending.
+ *
+ * Unlike every other figure on the page this cannot come from the cube: the cube indexes
+ * (category, status, bucket), and giving equipment types their own time dimension would
+ * cost about 3.8 MB per dataset at week resolution to save roughly two milliseconds. A
+ * single filtered pass over the rows is the better trade.
+ *
+ * `fromTs`/`toTs` are a half-open range of timestamps, so callers pass the start of the
+ * first bucket and the start of the bucket after the last.
+ */
+export function totalsByTypeInWindow(rows, catSet, statusSet, fromTs, toTs) {
+  const acc = new Map()
+  for (const r of rows) {
+    if (r.t == null || r.t < fromTs || r.t >= toTs) continue
+    if (!catSet.has(r.cat) || !statusSet.has(r.status)) continue
+    acc.set(r.typeName, (acc.get(r.typeName) || 0) + r.weight)
+  }
+  return [...acc.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+}
+
 /** Weighted totals by an arbitrary key, sorted descending. */
 export function totalsBy(records, keyFn) {
   const m = new Map()

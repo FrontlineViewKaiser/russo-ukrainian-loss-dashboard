@@ -12,6 +12,10 @@ import ChartTooltip from './ChartTooltip.jsx'
 import { axisProps, gridProps } from './ui.jsx'
 
 const pct = (v, total) => (total ? ((100 * v) / total).toFixed(1) + '%' : '0%')
+
+// These panels follow the timeline's brush, so each one says which window it is counting.
+// rangeLabel returns null for the full span, which is the common case and needs no date range.
+const inWindow = (label) => (label ? `${label} · dated entries` : 'All dated entries')
 const ROW = 22
 const ROW_WRAPPED = 27 // category names can wrap to two lines
 
@@ -19,13 +23,13 @@ const ROW_WRAPPED = 27 // category names can wrap to two lines
 const endLabel = { position: 'right', fill: 'var(--text-subtle)', fontSize: 10.5, formatter: fmt }
 
 /* --------------------------------------------------------- losses by category -- */
-function CategoryTotals({ categoryTotals, selected, onIsolate, emphasis, onEmphasis }) {
+function CategoryTotals({ categoryTotals, selected, onIsolate, emphasis, onEmphasis, windowLabel }) {
   const data = useMemo(() => categoryTotals.filter((d) => d.value > 0), [categoryTotals])
 
   return (
     <Panel
       title="Losses by category"
-      caption="Click a bar to isolate that category"
+      caption={`${inWindow(windowLabel)} · click a bar to isolate`}
       columns={['Category', 'Vehicles']}
       rows={categoryTotals.map((d) => [d.name, d.value])}
       tableLabel="losses by category"
@@ -74,13 +78,13 @@ function CategoryTotals({ categoryTotals, selected, onIsolate, emphasis, onEmpha
 }
 
 /* ----------------------------------------------------------- top equipment -- */
-function TopTypes({ typeTotals, limit = 20 }) {
+function TopTypes({ typeTotals, limit = 20, windowLabel }) {
   const data = useMemo(() => typeTotals.slice(0, limit), [typeTotals, limit])
 
   return (
     <Panel
       title="Top equipment types"
-      caption={`${limit} most-lost of ${fmt(typeTotals.length)} types in selection`}
+      caption={`${limit} most-lost of ${fmt(typeTotals.length)} types · ${inWindow(windowLabel)}`}
       columns={['Type', 'Vehicles']}
       rows={typeTotals.map((d) => [d.name, d.value])}
       tableLabel="top equipment types"
@@ -113,7 +117,7 @@ function TopTypes({ typeTotals, limit = 20 }) {
 }
 
 /* ------------------------------------------------------------------ outcome -- */
-function Outcome({ statusTotals }) {
+function Outcome({ statusTotals, windowLabel }) {
   // Fixed order, never value order: the colour sequence is only validated for these
   // adjacencies, so a filter must not reshuffle the ring.
   const data = useMemo(() => statusTotals.filter((d) => d.value > 0), [statusTotals])
@@ -122,7 +126,7 @@ function Outcome({ statusTotals }) {
   return (
     <Panel
       title="Outcome"
-      caption="Share of documented vehicles"
+      caption={`Share of documented vehicles · ${inWindow(windowLabel)}`}
       columns={['Outcome', 'Vehicles', 'Share']}
       rows={data.map((d) => [d.name, d.value, pct(d.value, total)])}
       tableLabel="outcome breakdown"
