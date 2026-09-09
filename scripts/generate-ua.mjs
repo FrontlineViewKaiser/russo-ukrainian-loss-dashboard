@@ -151,7 +151,7 @@ const CATALOGUE = {
   Helicopters: [72, [
     ['Mi-8', 40], ['Mi-24', 30], ['Mi-2', 12], ['Mi-14', 8], ['Mi-17', 10],
   ]],
-  Radars: [64, [
+  'Radars And Communications Equipment': [64, [
     ['P-18 radar', 24], ['36D6 radar', 20], ['AN/TPQ-36 counter-battery radar', 16],
     ['1L219 Zoopark-1', 14], ['79K6 Pelikan', 12], ['Unknown radar', 14],
   ]],

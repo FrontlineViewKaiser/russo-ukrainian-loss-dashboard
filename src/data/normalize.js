@@ -19,6 +19,26 @@ export const STATUSES = [
 ]
 
 /**
+ * The Russian and Ukrainian Oryx lists name two categories differently for what is the
+ * same thing. Left unresolved this is not cosmetic: the comparison view matches categories
+ * by name, so each side contributes a half-empty entry and one of them reports zero.
+ *
+ * Canonicalising here, at the point of entry, means either spelling resolves correctly even
+ * if a future scrape reintroduces the split. `scripts/check-data.mjs` additionally fails if
+ * the two datasets ever disagree on a category name that is not listed here.
+ *
+ * WarSpotting is deliberately NOT put through this: it keeps its own 18-value taxonomy,
+ * where "Vessels" and "Radars, jammers" are different categories, not aliases of these.
+ */
+const CATEGORY_ALIASES = {
+  Radars: 'Radars And Communications Equipment',
+  'Naval Ships': 'Naval Ships and Submarines',
+}
+
+/** Resolves a source category name to the canonical one. */
+export const canonicalCat = (name) => CATEGORY_ALIASES[String(name).trim()] || String(name).trim()
+
+/**
  * Oryx writes multi-vehicle entries as a leading index list: "(6 and 7, destroyed)",
  * "154, 155, 156 and 157, destroyed", "(71 and 72 destroyed)". The parentheses,
  * the comma and the "and" are all inconsistent, so match the numbers instead.
@@ -105,8 +125,9 @@ export function ymOf(d) {
 export function flatten(json) {
   const losses = json?.Losses || {}
   const out = []
-  for (const cat of Object.keys(losses)) {
-    for (const e of losses[cat]) {
+  for (const rawCat of Object.keys(losses)) {
+    const cat = canonicalCat(rawCat)
+    for (const e of losses[rawCat]) {
       const { status, weight } = parseStatus(e.status)
       const { typeName, typeTotal } = parseType(e.type)
       const date = parseDate(e.date)

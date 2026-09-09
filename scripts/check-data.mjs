@@ -87,7 +87,7 @@ function describe(file) {
   return rows
 }
 
-describe('oryx-ru.json')
+const ru = describe('oryx-ru.json')
 const ua = describe('oryx-ua.json')
 
 /* ---- the synthetic file is checked against the generator's ground truth ---------- */
@@ -176,6 +176,29 @@ if (!fs.existsSync(wsPath)) {
   expect('rows falling through to Other', rows.filter((r) => r.status === 'Other').length, 0)
   expect('every record weighs 1', rows.filter((r) => r.weight !== 1).length, 0)
   console.log(`  note  outcomes this source cannot express: ${UNREACHABLE_STATUSES.join(', ')}`)
+}
+
+/* ---- the two Oryx datasets must agree on their category names ------------------- */
+// They match by name everywhere - most visibly on the comparison page, where a mismatch
+// silently produces a half-empty category reporting zero for one side rather than an
+// obvious error. normalize.js folds the known variants together; this catches new ones.
+if (ru && ua) {
+  console.log()
+  console.log('=== Oryx category taxonomies ===')
+  const rc = [...new Set(ru.map((r) => r.cat))].sort()
+  const uc = [...new Set(ua.map((r) => r.cat))].sort()
+  const onlyRu = rc.filter((c) => !uc.includes(c))
+  const onlyUa = uc.filter((c) => !rc.includes(c))
+  console.log(`  russia ${rc.length} categories, ukraine ${uc.length}`)
+  if (onlyRu.length || onlyUa.length) {
+    failures++
+    console.log('  FAIL: the two datasets disagree on category names')
+    for (const c of onlyRu) console.log(`    only in russia : ${c}`)
+    for (const c of onlyUa) console.log(`    only in ukraine: ${c}`)
+    console.log('  Add an entry to CATEGORY_ALIASES in src/data/normalize.js to fold them together.')
+  } else {
+    console.log(`  ok   identical category sets (${rc.length} shared)`)
+  }
 }
 
 console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nall checks passed')

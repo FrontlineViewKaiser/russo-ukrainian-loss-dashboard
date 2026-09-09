@@ -13,6 +13,9 @@ const SHORT = {
   'Unmanned Combat Aerial Vehicles': 'Unmanned Combat Air Veh.',
   'Surface-To-Air Missile Systems': 'SAM Systems',
   'Jammers And Deception Systems': 'Jammers & Deception',
+  // Kept distinct from 'Command Posts & Comms' so the two are not confused on an axis.
+  'Radars And Communications Equipment': 'Radars & Comms Equip.',
+  'Naval Ships and Submarines': 'Naval Ships & Subs',
   'Infantry Fighting Vehicles': 'Infantry Fighting Veh.',
   'Armoured Fighting Vehicles': 'Armoured Fighting Veh.',
   'Armoured Personnel Carriers': 'Armoured Pers. Carriers',
